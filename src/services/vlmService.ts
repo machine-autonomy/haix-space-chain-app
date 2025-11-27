@@ -1,7 +1,8 @@
 import { mapLayout, CELL_SIZE, START_GRID, GOAL_GRID } from '../components/MazeLevel';
 
 // LLM StudioやLocal AIのエンドポイント (環境に合わせて変更してください)
-const VLM_API_URL = "http://localhost:1234/v1/chat/completions";
+// Viteのプロキシ経由でアクセスするため、相対パスに変更
+const VLM_API_URL = "/v1/chat/completions";
 const API_KEY = "lm-studio"; // ローカルなら適当でOK
 
 export type AgentAction = "move_forward" | "turn_left" | "turn_right" | "stop";
@@ -238,7 +239,7 @@ export const analyzeAscii = async (asciiMap: string): Promise<VLMResponse> => {
         "Authorization": `Bearer ${API_KEY}`,
       },
       body: JSON.stringify({
-        model: "local-model", // Change if needed
+        model: "google/gemma-3-12b", // Change if needed
         messages: [
           {
             role: "system",
@@ -323,7 +324,7 @@ export const analyzeImage = async (base64Image: string, futureImages?: Record<st
         "Authorization": `Bearer ${API_KEY}`,
       },
       body: JSON.stringify({
-        model: "llava-v1.5-7b", // 使用しているモデル名
+        model: "google/gemma-3-12b", // 使用しているモデル名
         messages: [
           {
             role: "user",
