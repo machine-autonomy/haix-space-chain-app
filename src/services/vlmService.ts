@@ -192,6 +192,7 @@ G : Goal Point
 > : You (Facing East / Right)
 v : You (Facing South / Down)
 < : You (Facing West / Left)
+o : Visited Path
 
 STATUS:
 - If you are on 'S', you are at the Start.
@@ -203,13 +204,21 @@ Your task:
 3. Determine the immediate action (move_forward, turn_left, turn_right) to follow that path.
    - 'move_forward' moves you 1 step in the direction you are facing.
    - 'turn_left' / 'turn_right' rotates you 90 degrees in place.
-   - Chose 'move_forward' preferentially if you can go straight.
+   - 'stop' if you have reached the Goal or cannot move.
+   - Chose 'move_forward' preferentially if your front is an open path.
+   - Choose an action so that the map state after the action is as different as possible from the state before the action.
+   - You can move to visited path if there is no other route.
 4. Output JSON only: {"thought": "reasoning...", "action": "move_forward" | "turn_left" | "turn_right" | "stop"}
 `;
 
 export const generateAsciiMap = (pos: {x: number, z: number}, rot: number): string => {
   const gridX = Math.round(pos.x / CELL_SIZE);
   const gridZ = Math.round(pos.z / CELL_SIZE);
+  
+  // Mark current position as visited
+  if (mapLayout[gridZ] && mapLayout[gridZ][gridX] !== 1) {
+    mapLayout[gridZ][gridX] = -1;
+  }
   
   // Normalize rotation to 0-2PI
   let r = rot % (Math.PI * 2);
@@ -242,6 +251,8 @@ export const generateAsciiMap = (pos: {x: number, z: number}, rot: number): stri
         line += "G ";
       } else if (cell === 1) {
         line += "# ";
+      } else if (cell === -1) {
+        line += "o ";
       } else {
         line += ". ";
       }
