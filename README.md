@@ -26,6 +26,10 @@ Space Chain Explorerは、3D迷路探索とAIエージェント制御を組み�
 
 ## セットアップ
 
+使うLLMに合わせて.env ファイルを作成
+.env.sample.azure - azure openaiを使う際の設定のサンプル
+.env.sample.local - LM studio等を使う際のサンプル
+
 ### 必要な環境
 
 - Node.js 18以上
