@@ -25,6 +25,7 @@ const PlayerController = ({
   const pos = useRef(new THREE.Vector3(START_GRID.x * CELL_SIZE, 1.5, START_GRID.z * CELL_SIZE)); // Start pos
   const rot = useRef(0); // Y-axis rotation
   const targetAction = useRef<AgentAction | null>(null);
+  const actionQueue = useRef<AgentAction[]>([]);
   const movingState = useRef({ progress: 0, startPos: new THREE.Vector3(), startRot: 0 });
 
   // Keyboard state
@@ -142,10 +143,7 @@ const PlayerController = ({
       console.log("PlayerController: Setting triggerAgentAction");
       const handler = (action: AgentAction) => {
         console.log("PlayerController: triggerAgentAction called with", action);
-        targetAction.current = action;
-        movingState.current.progress = 0;
-        movingState.current.startPos.copy(pos.current);
-        movingState.current.startRot = rot.current;
+        actionQueue.current.push(action);
       };
       
       (window as any).triggerAgentAction = handler;
@@ -161,6 +159,16 @@ const PlayerController = ({
     const rotSpeed = 2.0 * delta;
     
     let nextPos = pos.current.clone();
+
+    if (isAgentActive && !targetAction.current && actionQueue.current.length > 0) {
+      const nextAction = actionQueue.current.shift();
+      if (nextAction) {
+        targetAction.current = nextAction;
+        movingState.current.progress = 0;
+        movingState.current.startPos.copy(pos.current);
+        movingState.current.startRot = rot.current;
+      }
+    }
 
     if (isAgentActive && targetAction.current) {
       // --- AI Movement (Discrete steps) ---
@@ -243,13 +251,14 @@ function App() {
   const [pos, setPos] = useState({ x: 0, z: 0 });
   const [rot, setRot] = useState(0);
   const [history, setHistory] = useState<{ x: number, z: number }[]>([]);
-  const [logs, setLogs] = useState<{role: string, text: string}[]>([]);
+  const [logs, setLogs] = useState<{role: string, text: string, image?: string}[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [showMinimap, setShowMinimap] = useState(true); // New: Toggle Map
 
   const captureRef = useRef<(() => string) | null>(null);
   const simulationRef = useRef<(() => Record<string, { image: string, pos: {x: number, z: number}, rot: number }>) | null>(null);
   const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
+  const logContainerRef = useRef<HTMLDivElement>(null); // New: Ref for auto-scrolling
   const [simulatedImages, setSimulatedImages] = useState<Record<string, string> | null>(null); // New: Store simulated views
 
   // Update history periodically
@@ -259,6 +268,13 @@ function App() {
     }, 500);
     return () => clearInterval(interval);
   }, [pos]);
+
+  // Auto-scroll logs
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logs, isThinking]);
 
   // Agent Loop
   useEffect(() => {
@@ -402,7 +418,7 @@ function App() {
         }
 
         setIsThinking(true);
-        addLog("Agent", "Analyzing vision...");
+        addLog("Agent", "Analyzing vision...", tiled);
         result = await analyzeImage(tiled);
       }
       
@@ -461,8 +477,8 @@ function App() {
     }
   };
 
-  const addLog = (role: string, text: string) => {
-    setLogs((prev: {role: string, text: string}[]) => [...prev.slice(-4), { role, text }]);
+  const addLog = (role: string, text: string, image?: string) => {
+    setLogs((prev: {role: string, text: string, image?: string}[]) => [...prev.slice(-100), { role, text, image }]);
   };
 
   return (
@@ -503,10 +519,10 @@ function App() {
       </div>
 
       {/* Right: Control & Space Graph */}
-      <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', overflow: 'hidden' }}>
         
         {/* Controls */}
-        <div style={{ background: '#222', padding: '15px', borderRadius: '8px' }}>
+        <div style={{ background: '#222', padding: '15px', borderRadius: '8px', flexShrink: 0 }}>
           <h2>Space Chain Lab</h2>
           <button 
             onClick={() => {
@@ -560,7 +576,7 @@ function App() {
 
         {/* Manual Test Interface */}
         {manualMode && isWaitingForManualInput && (
-          <div style={{ background: '#333', padding: '15px', borderRadius: '8px', border: '1px solid #00bcd4' }}>
+          <div style={{ background: '#333', padding: '15px', borderRadius: '8px', border: '1px solid #00bcd4', flexShrink: 0 }}>
             <h4>Manual {asciiMode ? "ASCII" : "VLM"} Test</h4>
             
             <div style={{ marginBottom: '10px' }}>
@@ -641,7 +657,7 @@ function App() {
         {/* Minimap (Space Graph Visualization) - REMOVED from here */}
         
         {/* Logs / Thinking Process */}
-        <div style={{ flex: 1, background: '#000', padding: '15px', borderRadius: '8px', overflowY: 'auto', fontFamily: 'monospace' }}>
+        <div ref={logContainerRef} style={{ flex: 1, background: '#000', padding: '15px', borderRadius: '8px', overflowY: 'auto', fontFamily: 'monospace', minHeight: 0 }}>
           <h4>Thinking Log</h4>
           {logs.map((log, i) => (
             <div key={i} style={{ marginBottom: '10px', borderBottom: '1px solid #333', paddingBottom: '5px' }}>
@@ -649,6 +665,11 @@ function App() {
                 [{log.role}]
               </span><br/>
               {log.text}
+              {log.image && (
+                <div style={{ marginTop: '5px' }}>
+                  <img src={log.image} alt="Vision Context" style={{ width: '100%', borderRadius: '4px', border: '1px solid #333' }} />
+                </div>
+              )}
             </div>
           ))}
           {isThinking && <div style={{color: '#888'}}>Processing...</div>}

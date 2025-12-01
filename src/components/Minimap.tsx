@@ -21,7 +21,7 @@ export const drawMinimap = (
   const SCALE = 60; // High resolution for VLM capture
 
   // Clear
-  ctx.fillStyle = "#111";
+  ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Draw Maze Walls

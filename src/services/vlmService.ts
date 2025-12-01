@@ -1,9 +1,13 @@
 import { mapLayout, CELL_SIZE, START_GRID, GOAL_GRID } from '../components/MazeLevel';
 
-// LLM StudioやLocal AIのエンドポイント (環境に合わせて変更してください)
-// Viteのプロキシ経由でアクセスするため、相対パスに変更
-const VLM_API_URL = "/v1/chat/completions";
-const API_KEY = "lm-studio"; // ローカルなら適当でOK
+// Azure OpenAI Configuration loaded from .env
+const DEPLOYMENT_NAME = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT_NAME;
+const API_VERSION = import.meta.env.VITE_AZURE_OPENAI_API_VERSION;
+const API_KEY = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
+
+// Use relative path to go through Vite proxy
+
+const VLM_API_URL = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT === `/v1/chat/completions` ? `/v1/chat/completions` : `/openai/deployments/${DEPLOYMENT_NAME}/chat/completions?api-version=${API_VERSION}`;
 
 export type AgentAction = "move_forward" | "turn_left" | "turn_right" | "stop";
 
@@ -78,6 +82,43 @@ If left tile is black and right tile grey → choose turn_left
 If forward is open and leads toward the interior path → move_forward
 If the simulation shows an open corridor even if 3D looks tight → still valid
 `;
+
+/*
+export const SYSTEM_PROMPT = `
+You are a 3D Exploration Agent navigating a maze.
+The goal is to reach the designated target area.
+Walk around the 3D maze and find the goal.
+
+# INPUT IMAGE FORMAT
+You will receive a single image containing four views arranged in a 2×2 grid:
+Top-Left: CURRENT VIEW
+Top-Right: Simulation if you MOVE FORWARD
+Bottom-Left: Simulation if you TURN LEFT
+Bottom-Right: Simulation if you TURN RIGHT
+Use these simulated future views to avoid collisions and dead ends.
+
+# VISUAL CUES
+START POINT: Green floor tile
+GOAL POINT: White floor tile + floating yellow box
+WALLS: Cyan blocks
+FLOOR: Dark gray
+
+# NEW CRITICAL RULES — MUST FOLLOW
+1. Turning is mandatory when:
+Forward cell is a wall
+Forward leads to a dead end
+There is a turn required to follow the only viable path
+
+# OUTPUT FORMAT
+Output ONLY JSON:
+{"thought": "reasoning...", "action": "move_forward" | "turn_left" | "turn_right" | "stop"}
+
+# EXAMPLE OF CORRECT REASONING
+If left tile is black and right tile grey → choose turn_left
+If forward is open and leads toward the interior path → move_forward
+If the simulation shows an open corridor even if 3D looks tight → still valid
+`;
+*/
 
 // Helper to load image from base64
 const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -218,7 +259,7 @@ export const generateAsciiMap = (pos: {x: number, z: number}, rot: number): stri
 };
 
 export const analyzeAscii = async (asciiMap: string): Promise<VLMResponse> => {
-  const MOCK_MODE = true; // Toggle this for real API
+  const MOCK_MODE = false; // Toggle this for real API
 
   if (MOCK_MODE) {
     return new Promise((resolve) => {
@@ -236,26 +277,25 @@ export const analyzeAscii = async (asciiMap: string): Promise<VLMResponse> => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}`,
+        "api-key": API_KEY,
       },
       body: JSON.stringify({
-        model: "google/gemma-3-12b", // Change if needed
         messages: [
           {
-            role: "system",
-            content: SYSTEM_PROMPT_ASCII
-          },
-          {
             role: "user",
-            content: asciiMap
+            content: SYSTEM_PROMPT_ASCII + "\n\n" + asciiMap
           }
         ],
-        temperature: 0.1,
-        max_tokens: 100,
       }),
     });
 
     const data = await response.json();
+
+    if (!data.choices || !data.choices.length) {
+      console.error("ASCII API Error Response:", data);
+      return { thought: "API Error: Check console for details.", action: "stop" };
+    }
+
     const content = data.choices[0].message.content;
     const cleanJson = content.replace(/```json|```/g, "").trim();
     return JSON.parse(cleanJson);
@@ -321,22 +361,25 @@ export const analyzeImage = async (base64Image: string, futureImages?: Record<st
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}`,
+        "api-key": API_KEY,
       },
       body: JSON.stringify({
-        model: "google/gemma-3-12b", // 使用しているモデル名
         messages: [
           {
             role: "user",
             content: messages,
           },
         ],
-        temperature: 0.1,
-        max_tokens: 100,
       }),
     });
 
     const data = await response.json();
+    
+    if (!data.choices || !data.choices.length) {
+      console.error("VLM API Error Response:", data);
+      return { thought: "API Error: Check console for details.", action: "stop" };
+    }
+
     const content = data.choices[0].message.content;
     
     // JSONパース（マークダウン記法が含まれる場合の除去処理含む）
