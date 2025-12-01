@@ -203,6 +203,7 @@ Your task:
 3. Determine the immediate action (move_forward, turn_left, turn_right) to follow that path.
    - 'move_forward' moves you 1 step in the direction you are facing.
    - 'turn_left' / 'turn_right' rotates you 90 degrees in place.
+   - Chose 'move_forward' preferentially if you can go straight.
 4. Output JSON only: {"thought": "reasoning...", "action": "move_forward" | "turn_left" | "turn_right" | "stop"}
 `;
 

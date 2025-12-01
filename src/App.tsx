@@ -7,6 +7,8 @@ import { MazeLevel, mapLayout, CELL_SIZE, START_GRID } from './components/MazeLe
 import { Minimap, drawMinimap } from './components/Minimap';
 import { analyzeImage, analyzeAscii, generateAsciiMap, createTiledImage, AgentAction, SYSTEM_PROMPT, SYSTEM_PROMPT_ASCII } from './services/vlmService';
 
+const CAMERA_PITCH = -20 * (Math.PI / 180);
+
 // --- Player & Camera Controller Component ---
 const PlayerController = ({ 
   isAgentActive, 
@@ -109,6 +111,7 @@ const PlayerController = ({
           // Apply to Camera
           camera.position.copy(simPos);
           camera.rotation.set(0, simRot, 0);
+          camera.rotateX(CAMERA_PITCH); 
           camera.updateMatrixWorld();
           
           // Render
@@ -123,6 +126,7 @@ const PlayerController = ({
         // Restore
         camera.position.copy(originalPos);
         camera.rotation.set(0, originalRot, 0);
+        camera.rotateX(CAMERA_PITCH); 
         camera.updateMatrixWorld();
         gl.render(scene, camera); // Render back original frame
 
@@ -217,6 +221,7 @@ const PlayerController = ({
     // Sync Camera
     camera.position.copy(pos.current);
     camera.rotation.set(0, rot.current, 0);
+    camera.rotateX(CAMERA_PITCH);
     
     // Update Parent State for Minimap
     onUpdateState({ x: pos.current.x, z: pos.current.z }, rot.current);
@@ -251,7 +256,7 @@ function App() {
   const [pos, setPos] = useState({ x: 0, z: 0 });
   const [rot, setRot] = useState(0);
   const [history, setHistory] = useState<{ x: number, z: number }[]>([]);
-  const [logs, setLogs] = useState<{role: string, text: string, image?: string}[]>([]);
+  const [logs, setLogs] = useState<{role: string, text: string, image?: string, asciiMap?: string}[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [showMinimap, setShowMinimap] = useState(true); // New: Toggle Map
 
@@ -305,7 +310,7 @@ function App() {
            return;
         }
 
-        addLog("Agent", "Analyzing ASCII Map...");
+        addLog("Agent", "Analyzing ASCII Map...", undefined, generatedMap || undefined);
         result = await analyzeAscii(promptContent);
 
       } else {
@@ -477,8 +482,8 @@ function App() {
     }
   };
 
-  const addLog = (role: string, text: string, image?: string) => {
-    setLogs((prev: {role: string, text: string, image?: string}[]) => [...prev.slice(-100), { role, text, image }]);
+  const addLog = (role: string, text: string, image?: string, asciiMap?: string) => {
+    setLogs((prev) => [...prev.slice(-100), { role, text, image, asciiMap }]);
   };
 
   return (
@@ -668,6 +673,11 @@ function App() {
               {log.image && (
                 <div style={{ marginTop: '5px' }}>
                   <img src={log.image} alt="Vision Context" style={{ width: '100%', borderRadius: '4px', border: '1px solid #333' }} />
+                </div>
+              )}
+              {log.asciiMap && (
+                <div style={{ marginTop: '5px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '10px', lineHeight: '10px', color: '#0f0', background: '#222', padding: '5px', borderRadius: '4px' }}>
+                  {log.asciiMap}
                 </div>
               )}
             </div>
