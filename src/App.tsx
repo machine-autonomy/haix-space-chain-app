@@ -302,6 +302,7 @@ function App() {
         const promptContent = formatAsciiHistory(newHistory);
         
         setCurrentAsciiMap(promptContent); // Show full history in manual mode
+        setIsThinking(true);
         
         if (manualMode) {
            setIsWaitingForManualInput(true);
@@ -679,8 +680,7 @@ function App() {
                 <div style={{ marginTop: '5px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '10px', lineHeight: '10px', color: '#0f0', background: '#222', padding: '5px', borderRadius: '4px' }}>
                   {log.asciiMap}
                 </div>
-              )}
-            </div>
+              )}            </div>
           ))}
           {isThinking && <div style={{color: '#888'}}>Processing...</div>}
         </div>
