@@ -422,10 +422,10 @@ function App() {
            setIsThinking(false);
            return;
         }
-
+        
         setIsThinking(true);
-        addLog("Agent", "Analyzing vision...", tiled);
         result = await analyzeImage(tiled);
+        addLog("Agent", "Analyzing vision...", tiled);
       }
       
       await executeAgentAction(result);
